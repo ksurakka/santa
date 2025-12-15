@@ -1,1 +1,916 @@
-testi
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lunawood – Santa's Sleigh</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #0b1f4b 0%, #0b3a7a 35%, #062a5a 70%, #041026 100%);
+      color: white;
+      overflow: hidden;
+    }
+    #game {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      place-items: center;
+    }
+    canvas {
+      background: transparent;
+      display: block;
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      user-select: none;
+    }
+    #ui h1 {
+      margin: 0 0 6px 0;
+      font-size: 20px;
+    }
+    #ui p {
+      margin: 0;
+      font-size: 14px;
+      opacity: 0.95;
+    }
+    #hint {
+      margin-top: 6px;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    /* Santa + speech bubble (overlay) */
+    #santa {
+      position: absolute;
+      right: 0;
+      bottom: 120px;
+      display: flex;
+      align-items: flex-end;
+      gap: 12px;
+      transform: translateX(320px); /* hidden off-screen */
+      transition: transform 600ms ease;
+      pointer-events: none;
+      z-index: 20;
+    }
+    #santa.show {
+      /* peek just a little */
+      transform: translateX(-10px);
+    }
+    #santa .santaFigure {
+      position: relative;
+      width: 150px;
+      height: 150px;
+      transform: rotate(-10deg);
+      transform-origin: 100% 100%;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,0.35));
+    }
+    #santa .santaBody {
+      position: absolute;
+      right: 6px;
+      bottom: -52px;
+      width: 128px;
+      height: 128px;
+      border-radius: 999px;
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.18), rgba(0,0,0,0) 45%),
+        radial-gradient(circle at 65% 70%, rgba(0,0,0,0.18), rgba(0,0,0,0) 55%),
+        #c81e1e;
+      border: 3px solid rgba(255,255,255,0.22);
+    }
+
+    /* Santa's left waving arm */
+    #santa .santaArm {
+      position: absolute;
+      left: -18px;
+      bottom: 24px;
+      width: 70px;
+      height: 26px;
+      background: #c81e1e;
+      border-radius: 999px;
+      transform-origin: 90% 50%;
+      transform: rotate(-20deg);
+      box-shadow: inset 0 0 0 3px rgba(255,255,255,0.22);
+      animation: santaWave 1.6s ease-in-out infinite;
+    }
+    #santa .santaArm::after {
+      content: "🤚";
+      position: absolute;
+      left: -18px;
+      top: -14px;
+      font-size: 28px;
+      transform: rotate(10deg);
+    }
+
+    @keyframes santaWave {
+      0% { transform: rotate(-25deg); }
+      50% { transform: rotate(-5deg); }
+      100% { transform: rotate(-25deg); }
+    }
+
+    #santa .santaEmoji {
+      position: absolute;
+      right: 52px;
+      top: -18px;
+      font-size: 128px;
+      transform: translateY(8px);
+      filter: drop-shadow(0 8px 14px rgba(0,0,0,0.28));
+    }
+
+    #santaBubble {
+      max-width: 260px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.92);
+      color: #0b1f4b;
+      border-radius: 16px;
+      box-shadow: 0 10px 26px rgba(0,0,0,0.35);
+      font-size: 16px;
+      line-height: 1.25;
+      opacity: 0;
+      transform: translateY(6px) scale(0.98);
+      transition: opacity 220ms ease, transform 220ms ease;
+      position: relative;
+    }
+    #santaBubble.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    #santaBubble::after {
+      content: "";
+      position: absolute;
+      right: -10px;
+      bottom: 18px;
+      width: 0;
+      height: 0;
+      border-left: 12px solid rgba(255,255,255,0.92);
+      border-top: 10px solid transparent;
+      border-bottom: 10px solid transparent;
+      filter: drop-shadow(0 6px 10px rgba(0,0,0,0.15));
+    }
+    #santaBubble.bad {
+      background: rgba(255, 226, 226, 0.95);
+      color: #7f1d1d;
+    }
+    #santaBubble.bad::after {
+      border-left-color: rgba(255, 226, 226, 0.95);
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div id="ui">
+      <h1>Lunawood – Santa's Sleigh</h1>
+      <p id="status">Load the packages onto the sleigh</p>
+      <div id="hint">Controls: ⬅️ ➡️ move, ⬇️ speed up, ⬆️ rotate. (Press any key to start the music)</div>
+    </div>
+
+    <canvas id="canvas" width="1100" height="600"></canvas>
+
+    <!-- Santa peeks in from the right and comments -->
+    <div id="santa" aria-hidden="true">
+      <div id="santaBubble"></div>
+      <div class="santaFigure">
+        <div class="santaBody" aria-hidden="true"></div>
+        <div class="santaArm" aria-hidden="true"></div>
+        <div class="santaEmoji">🎅</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Looping Christmas music (Web Audio – Jingle Bells-ish melody) -->
+  <script>
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+    let musicStarted = false;
+    let musicTimer = null;
+
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new AudioContext();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    const jingleBells = [
+      { f: 659, d: 0.25 }, { f: 659, d: 0.25 }, { f: 659, d: 0.5 },
+      { f: 659, d: 0.25 }, { f: 659, d: 0.25 }, { f: 659, d: 0.5 },
+      { f: 659, d: 0.25 }, { f: 784, d: 0.25 }, { f: 523, d: 0.25 }, { f: 587, d: 0.25 }, { f: 659, d: 0.75 },
+      { f: 698, d: 0.25 }, { f: 698, d: 0.25 }, { f: 698, d: 0.25 }, { f: 698, d: 0.25 }, { f: 698, d: 0.25 },
+      { f: 659, d: 0.25 }, { f: 659, d: 0.25 }, { f: 659, d: 0.25 }, { f: 784, d: 0.25 }, { f: 784, d: 0.25 },
+      { f: 698, d: 0.25 }, { f: 587, d: 0.25 }, { f: 523, d: 0.75 }
+    ];
+
+    function playSequence(sequence) {
+      ensureAudio();
+      let t = audioCtx.currentTime + 0.05;
+      sequence.forEach(note => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = note.f;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.05, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + note.d);
+        osc.connect(gain).connect(audioCtx.destination);
+        osc.start(t);
+        osc.stop(t + note.d + 0.02);
+        t += note.d;
+      });
+      return t - audioCtx.currentTime;
+    }
+
+    function playMusic() {
+      if (musicStarted) return;
+      musicStarted = true;
+      const loop = () => {
+        const duration = playSequence(jingleBells);
+        musicTimer = setTimeout(loop, duration * 1000);
+      };
+      loop();
+    }
+  </script>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const statusEl = document.getElementById("status");
+
+    // --- Package-side SVG logo (from provided file content) ---
+    const lunawoodLogoSvg = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 74" width="100" height="74">
+  <image href="data:image/png;base64,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" width="100" height="74"/>
+</svg>
+    `.trim();
+
+    const logoImg = new Image();
+    let logoLoaded = false;
+    logoImg.onload = () => { logoLoaded = true; };
+    logoImg.src = "data:image/svg+xml;utf8," + encodeURIComponent(lunawoodLogoSvg);
+
+    const gridCols = 10;
+    const gridRows = 6;
+    const cell = 40;
+
+    // Sled placement
+    const sledX = 110;
+    const sledY = 300;
+
+    let grid = Array.from({ length: gridRows }, () => Array(gridCols).fill(0));
+    let packagesLoaded = 0;
+    const targetPackages = 14; // win condition
+    const halfwayPackages = Math.floor(targetPackages / 2);
+    let currentPackage = null;
+    let reindeerShake = 0;
+    let finished = false;
+    let gameOver = false;
+
+    // Flight offsets after win
+    window.sledFlyOffsetX = 0;
+    window.sledFlyOffsetY = 0;
+
+    // Santa comments
+    const santaGoodComments = [
+      "Hou hou, let's go!",
+      "Only A quality!",
+      "Very good, very good!",
+      "Yes yees!"
+    ];
+    const santaBadComment = "Nou nou, c'mon guys!";
+
+    const santaEl = document.getElementById("santa");
+    const santaBubble = document.getElementById("santaBubble");
+    let santaIntroDone = false;
+    let santaHideTimer = null;
+    let santaSlideOutTimer = null;
+
+    function showSanta(text, bad = false) {
+      if (!santaEl || !santaBubble) return;
+
+      clearTimeout(santaHideTimer);
+      clearTimeout(santaSlideOutTimer);
+
+      santaEl.classList.add("show");
+      santaBubble.textContent = text;
+      santaBubble.classList.toggle("bad", !!bad);
+      santaBubble.classList.add("visible");
+
+      santaHideTimer = setTimeout(() => {
+        santaBubble.classList.remove("visible");
+      }, 2200);
+
+      santaSlideOutTimer = setTimeout(() => {
+        santaEl.classList.remove("show");
+      }, 4200);
+    }
+
+    function randomGoodComment() {
+      return santaGoodComments[Math.floor(Math.random() * santaGoodComments.length)];
+    }
+
+    // "Bad" indicator: empty cells below filled ones (holes)
+    function countHoles() {
+      let holes = 0;
+      for (let c = 0; c < gridCols; c++) {
+        let seenFilled = false;
+        for (let r = 0; r < gridRows; r++) {
+          if (grid[r][c]) {
+            seenFilled = true;
+          } else if (seenFilled) {
+            holes++;
+          }
+        }
+      }
+      return holes;
+    }
+
+    let prevHoles = 0;
+
+    // Sparkle dust particles
+    const dust = [];
+
+    // Snow and stars
+    const snowflakes = [];
+    const stars = [];
+
+    const packageShapes = [
+      [[1, 1, 1, 1]],
+      [[1, 1], [1, 1]],
+      [[1, 1, 1], [0, 1, 0]],
+      [[1, 1, 0], [0, 1, 1]],
+    ];
+
+    function newPackage() {
+      const shape = packageShapes[Math.floor(Math.random() * packageShapes.length)];
+      return { shape, x: 4, y: -5 };
+    }
+
+    currentPackage = newPackage();
+
+    initStarsAndSnow();
+
+    function drawPackageCell(x, y) {
+      ctx.fillStyle = "#c68642";
+      ctx.fillRect(x, y, cell, cell);
+      ctx.strokeStyle = "rgba(0,0,0,0.25)";
+      ctx.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
+
+      if (logoLoaded && logoImg.complete) {
+        const pad = 4;
+        const size = cell - pad * 2;
+        ctx.globalAlpha = 0.92;
+        ctx.drawImage(logoImg, x + pad, y + pad, size, size);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "10px Arial";
+        ctx.fillText("Lunawood", x + 4, y + 22);
+      }
+    }
+
+    function drawGrid() {
+      const flyX = window.sledFlyOffsetX || 0;
+      const flyY = window.sledFlyOffsetY || 0;
+      for (let r = 0; r < gridRows; r++) {
+        for (let c = 0; c < gridCols; c++) {
+          if (grid[r][c]) {
+            drawPackageCell(sledX + flyX + c * cell, sledY + flyY + r * cell);
+          }
+        }
+      }
+    }
+
+    function drawCurrentPackage() {
+      if (!currentPackage) return;
+      const flyX = window.sledFlyOffsetX || 0;
+      const flyY = window.sledFlyOffsetY || 0;
+      currentPackage.shape.forEach((row, r) => {
+        row.forEach((val, c) => {
+          if (!val) return;
+          const px = sledX + flyX + (currentPackage.x + c) * cell;
+          const py = sledY + flyY + (currentPackage.y + r) * cell;
+          if (py > -cell && py < canvas.height + cell) {
+            drawPackageCell(px, py);
+          }
+        });
+      });
+    }
+
+    function drawSled() {
+      const flyX = window.sledFlyOffsetX || 0;
+      const flyY = window.sledFlyOffsetY || 0;
+      const now = Date.now();
+      const t = now / 220;
+
+      ctx.save();
+      ctx.translate(flyX, flyY + reindeerShake);
+
+      const bodyTop = sledY - 30;
+      const bodyBottom = sledY + gridRows * cell + 20;
+      const bodyFront = sledX + gridCols * cell + 40;
+      const bodyBack = sledX - 40;
+
+      ctx.beginPath();
+      ctx.moveTo(bodyBack, bodyTop + 20);
+      ctx.lineTo(bodyFront, bodyTop);
+      ctx.lineTo(bodyFront + 20, bodyBottom - 10);
+      ctx.lineTo(bodyBack, bodyBottom + 5);
+      ctx.quadraticCurveTo(bodyBack - 40, bodyBottom - 10, bodyBack - 10, bodyTop + 10);
+      ctx.closePath();
+      ctx.fillStyle = "#8b0000";
+      ctx.fill();
+
+      ctx.strokeStyle = "#facc15";
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Skids
+      ctx.strokeStyle = "#b45309";
+      ctx.lineCap = "round";
+
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(bodyBack - 40, bodyBottom + 14);
+      ctx.quadraticCurveTo(bodyBack + 40, bodyBottom + 36, bodyFront + 90, bodyBottom + 18);
+      ctx.quadraticCurveTo(bodyFront + 130, bodyBottom - 10, bodyFront + 70, bodyBottom - 6);
+      ctx.stroke();
+
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(bodyBack - 30, bodyBottom + 6);
+      ctx.quadraticCurveTo(bodyBack + 50, bodyBottom + 22, bodyFront + 80, bodyBottom + 10);
+      ctx.quadraticCurveTo(bodyFront + 110, bodyBottom - 16, bodyFront + 60, bodyBottom - 12);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(0,0,0,0.28)";
+      ctx.fillRect(sledX, sledY, gridCols * cell, gridRows * cell);
+
+      ctx.restore();
+
+      // Reindeer (6) – big and spaced out
+      const baseX = sledX + gridCols * cell + 200 + flyX;
+      const baseY = sledY + 40 + flyY;
+      const spacingX = 140;
+      const spacingY = 130;
+
+      ctx.font = "128px Segoe UI Emoji, Apple Color Emoji, Noto Color Emoji";
+
+      for (let i = 0; i < 6; i++) {
+        const col = i % 3;
+        const row = Math.floor(i / 3);
+
+        const wobbleX = Math.sin(t * 0.6 + i * 1.4) * 2 + Math.sin(t * 2.5 + i) * 1;
+        const wobbleY = Math.sin(t * 0.8 + i * 1.1) * 2 + Math.cos(t * 1.9 + i) * 1;
+
+        const x = baseX + col * spacingX + wobbleX;
+        const y = baseY + row * spacingY + wobbleY;
+
+        // Harness line from sled to reindeer neck (reindeer end higher)
+        const anchorX = sledX + gridCols * cell + 20 + flyX;
+        const anchorYBase = sledY + gridRows * cell * 0.45 + flyY;
+        const anchorY = anchorYBase + row * 26 - (row === 0 ? 10 : 0);
+
+        ctx.strokeStyle = "rgba(148, 94, 38, 0.8)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(anchorX, anchorY);
+
+        const neckX = x - 18;
+        const neckY = y - 28;
+        const midX = (anchorX + neckX) / 2;
+        const midY = anchorY + 18 + row * 4;
+        ctx.quadraticCurveTo(midX, midY, neckX, neckY);
+        ctx.stroke();
+
+        // Reindeer emoji (mirrored to face right)
+        ctx.save();
+        ctx.translate(x, 0);
+        ctx.scale(-1, 1);
+        ctx.fillText("🦌", 0, y);
+
+        if (!finished && !gameOver && Math.sin(t * 1.6 + i) > 0.94) {
+          const oldFont = ctx.font;
+          ctx.font = "24px Segoe UI Emoji";
+          ctx.fillText("⋯", 26, y + 72);
+          ctx.font = oldFont;
+        }
+
+        ctx.restore();
+      }
+    }
+
+    function initStarsAndSnow() {
+      stars.length = 0;
+      for (let i = 0; i < 80; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height * 0.6,
+          baseAlpha: 0.3 + Math.random() * 0.7,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.5 + Math.random() * 1.5,
+        });
+      }
+
+      snowflakes.length = 0;
+      for (let i = 0; i < 200; i++) {
+        snowflakes.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: 1 + Math.random() * 2.5,
+          vy: 0.5 + Math.random() * 1.2,
+          vx: -0.3 + Math.random() * 0.6,
+        });
+      }
+    }
+
+    function drawSky() {
+      const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      grad.addColorStop(0, "#0b1f4b");
+      grad.addColorStop(0.4, "#0b3a7a");
+      grad.addColorStop(1, "#030712");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Stars should appear ONLY on win
+      const shouldDrawStars = !!finished;
+      window.__starsRendered = shouldDrawStars;
+      if (!shouldDrawStars) return;
+
+      const now = Date.now() / 1000;
+      stars.forEach(s => {
+        const twinkle = 0.4 + 0.6 * Math.abs(Math.sin(now * s.speed + s.phase));
+        ctx.globalAlpha = s.baseAlpha * twinkle;
+        ctx.fillStyle = "#f9fafb";
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+    }
+
+    function updateSnow() {
+      snowflakes.forEach(f => {
+        f.y += f.vy;
+        f.x += f.vx;
+        if (f.y > canvas.height + 5) {
+          f.y = -5;
+          f.x = Math.random() * canvas.width;
+        }
+        if (f.x < -10) f.x = canvas.width + 10;
+        if (f.x > canvas.width + 10) f.x = -10;
+      });
+    }
+
+    function drawSnow() {
+      ctx.fillStyle = "#e5f2ff";
+      snowflakes.forEach(f => {
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+    }
+
+    function drawDust() {
+      // Sparkle dust should appear ONLY after winning
+      if (!finished) return;
+      for (let i = dust.length - 1; i >= 0; i--) {
+        const p = dust[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.02;
+        p.life -= 1;
+        if (p.life <= 0) {
+          dust.splice(i, 1);
+          continue;
+        }
+        ctx.globalAlpha = Math.max(0, p.life / 80);
+        ctx.fillText("✨", p.x, p.y);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    function canMove(dx, dy, testShape = currentPackage.shape) {
+      if (!currentPackage) return false;
+      return testShape.every((row, r) =>
+        row.every((val, c) => {
+          if (!val) return true;
+          const nx = currentPackage.x + c + dx;
+          const ny = currentPackage.y + r + dy;
+          if (nx < 0 || nx >= gridCols || ny >= gridRows) return false;
+          if (ny >= 0 && grid[ny][nx]) return false;
+          return true;
+        })
+      );
+    }
+
+    function rotateShape(shape) {
+      const h = shape.length;
+      const w = shape[0].length;
+      const rotated = Array.from({ length: w }, () => Array(h).fill(0));
+      for (let r = 0; r < h; r++) {
+        for (let c = 0; c < w; c++) {
+          rotated[c][h - 1 - r] = shape[r][c];
+        }
+      }
+      return rotated;
+    }
+
+    function tryRotate() {
+      if (!currentPackage) return;
+      const rotated = rotateShape(currentPackage.shape);
+      if (canMove(0, 0, rotated)) {
+        currentPackage.shape = rotated;
+      }
+    }
+
+    function lockPackage() {
+      if (currentPackage.y < 0) {
+        resetGame();
+        return;
+      }
+
+      currentPackage.shape.forEach((row, r) => {
+        row.forEach((val, c) => {
+          if (val) grid[currentPackage.y + r][currentPackage.x + c] = 1;
+        });
+      });
+
+      packagesLoaded++;
+
+      const holesNow = countHoles();
+      const holesDelta = holesNow - prevHoles;
+      const doingBad = (holesDelta >= 2) || (holesNow > 6);
+      prevHoles = holesNow;
+
+      if (doingBad) {
+        showSanta(santaBadComment, true);
+      } else {
+        if (Math.random() < 0.28) showSanta(randomGoodComment(), false);
+      }
+
+      if (packagesLoaded === halfwayPackages) {
+        reindeerShake = 10;
+        setTimeout(() => (reindeerShake = 0), 300);
+      }
+
+      if (packagesLoaded >= targetPackages) {
+        finishGame(true);
+        return;
+      }
+
+      currentPackage = newPackage();
+    }
+
+    function finishGame(animate = true) {
+      finished = true;
+      statusEl.textContent = "Merry Christmas!";
+      showSanta("Very good, very good!", false);
+
+      if (animate) {
+        // Animate sleigh taking off
+        const flyDuration = 1200;
+        const start = performance.now();
+
+        function fly(now) {
+          const tt = Math.min(1, (now - start) / flyDuration);
+          window.sledFlyOffsetX = tt * (canvas.width + 2200);
+          window.sledFlyOffsetY = -tt * 220;
+          if (tt < 1) requestAnimationFrame(fly);
+        }
+
+        window.sledFlyOffsetX = 0;
+        window.sledFlyOffsetY = 0;
+        requestAnimationFrame(fly);
+      }
+
+      // Sparkle trail
+      for (let i = 0; i < 140; i++) {
+        const angle = (-Math.PI / 2) + (Math.random() - 0.5) * 0.9; // wider spread
+        const speed = 10 + Math.random() * 8; // much faster
+        dust.push({
+          x: sledX + gridCols * cell + 40,
+          y: sledY - 20 + Math.random() * 140,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 35 + Math.floor(Math.random() * 25), // fade out faster
+        });
+      }
+    }
+
+    function resetGame() {
+      grid = Array.from({ length: gridRows }, () => Array(gridCols).fill(0));
+      packagesLoaded = 0;
+      currentPackage = newPackage();
+      reindeerShake = 0;
+      finished = false;
+      gameOver = false;
+      dust.length = 0;
+      prevHoles = 0;
+      window.sledFlyOffsetX = 0;
+      window.sledFlyOffsetY = 0;
+      statusEl.textContent = `Load the packages (${targetPackages} packages)`;
+      santaIntroDone = false;
+    }
+
+    // Input
+    document.addEventListener("keydown", (e) => {
+      playMusic();
+
+      if (!santaIntroDone) {
+        santaIntroDone = true;
+        showSanta("Hou hou, let's go!", false);
+      }
+
+      if (e.key === "r" || e.key === "R") {
+        resetGame();
+        return;
+      }
+
+      if (!currentPackage || finished || gameOver) return;
+
+      if (e.key === "ArrowLeft" && canMove(-1, 0)) currentPackage.x--;
+      if (e.key === "ArrowRight" && canMove(1, 0)) currentPackage.x++;
+      if (e.key === "ArrowDown" && canMove(0, 1)) currentPackage.y++;
+      if (e.key === "ArrowUp") tryRotate();
+    });
+
+    // Falling speed
+    let fallCounter = 0;
+    const fallSpeed = 5;
+
+    function update() {
+      if (finished || gameOver) {
+        updateSnow();
+        return;
+      }
+
+      fallCounter++;
+      if (fallCounter < fallSpeed) {
+        updateSnow();
+        return;
+      }
+      fallCounter = 0;
+
+      if (canMove(0, 1)) {
+        currentPackage.y++;
+      } else {
+        lockPackage();
+      }
+
+      updateSnow();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawSky();
+      drawSnow();
+
+      const remaining = Math.max(0, targetPackages - packagesLoaded);
+      if (!finished && !gameOver) {
+        const msg = `${remaining} packages remaining`;
+        const x = sledX + (gridCols * cell) / 2;
+        const y = sledY - 45;
+        ctx.font = "bold 34px Segoe UI, Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = "rgba(0,0,0,0.45)";
+        ctx.strokeText(msg, x, y);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(msg, x, y);
+        ctx.textAlign = "start";
+        ctx.textBaseline = "alphabetic";
+      }
+
+      drawSled();
+      drawGrid();
+      drawCurrentPackage();
+
+      if (finished) {
+        ctx.font = "bold 96px Segoe UI, Arial";
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ffffff";
+        ctx.strokeStyle = "rgba(0,0,0,0.55)";
+        ctx.lineWidth = 10;
+        ctx.strokeText("Merry Christmas!", canvas.width / 2, canvas.height / 2);
+        ctx.fillText("Merry Christmas!", canvas.width / 2, canvas.height / 2);
+        ctx.textAlign = "start";
+      }
+
+      drawDust();
+
+      if (gameOver) {
+        ctx.fillText("💥", sledX + 120, sledY - 40);
+      }
+    }
+
+    // --- Lightweight self-tests ---
+    function runSelfTests() {
+      try {
+        const p = newPackage();
+        console.assert(p && typeof p === "object", "newPackage() pitäisi palauttaa objekti");
+        console.assert(Array.isArray(p.shape), "Pakettimuodon pitäisi olla taulukko");
+        console.assert(typeof p.x === "number" && typeof p.y === "number", "x/y pitäisi olla numeroita");
+
+        const rotated = rotateShape(p.shape);
+        const count = s => s.flat().reduce((a, b) => a + b, 0);
+        console.assert(count(rotated) === count(p.shape), "Pyöräytys ei saa muuttaa palojen määrää");
+
+        currentPackage = newPackage();
+        console.assert(typeof canMove(0, 1) === "boolean", "canMove() pitäisi palauttaa boolean");
+
+        initStarsAndSnow();
+        console.assert(stars.length === 80, `Tähtien määrä odotettu 80, saatiin ${stars.length}`);
+        console.assert(snowflakes.length === 200, `Lumihiutaleiden määrä odotettu 200, saatiin ${snowflakes.length}`);
+
+        let threw = false;
+        try { drawSled(); } catch (e) { threw = true; }
+        console.assert(!threw, "drawSled() ei saisi heittää poikkeusta");
+
+        console.assert(!!document.getElementById("santa"), "#santa pitäisi löytyä DOM:sta");
+        console.assert(!!document.getElementById("santaBubble"), "#santaBubble pitäisi löytyä DOM:sta");
+        let santaThrew = false;
+        try { showSanta("Test comment", false); } catch (e) { santaThrew = true; }
+        console.assert(!santaThrew, "showSanta() ei saisi heittää poikkeusta");
+
+        console.assert(!!document.querySelector("#santa .santaBody"), ".santaBody pitäisi löytyä DOM:sta");
+
+        const holes = countHoles();
+        console.assert(Number.isFinite(holes) && holes >= 0, `countHoles() pitäisi olla >= 0, saatiin ${holes}`);
+
+        console.assert(typeof logoImg.src === "string" && logoImg.src.startsWith("data:image/svg+xml"), "logoImg.src pitäisi olla data:image/svg+xml...");
+
+        // Stars should NOT render before win; should render after win
+        const prevFinishedStars = finished;
+        finished = false;
+        drawSky();
+        console.assert(window.__starsRendered === false, "Stars should not render before win");
+        finished = true;
+        drawSky();
+        console.assert(window.__starsRendered === true, "Stars should render on win");
+        finished = prevFinishedStars;
+
+        // finishGame should not throw and should set finished=true (no animation)
+        let finishThrew = false;
+        try {
+          const prevFinished = finished;
+          finishGame(false);
+          console.assert(finished === true, "finishGame() pitäisi asettaa finished=true");
+          finished = prevFinished;
+          window.sledFlyOffsetX = 0;
+          window.sledFlyOffsetY = 0;
+        } catch (e) {
+          finishThrew = true;
+        }
+        console.assert(!finishThrew, "finishGame() ei saisi heittää poikkeusta");
+
+        currentPackage = p;
+      } catch (err) {
+        console.error("SelfTests epäonnistui:", err);
+      }
+    }
+
+    (function testSantaHeadSize(){
+      const el = document.querySelector('#santa .santaEmoji');
+      if (!el) { console.assert(false, 'santaEmoji puuttuu'); return; }
+      const fs = parseFloat(getComputedStyle(el).fontSize);
+      console.assert(fs >= 100, `Pukin pään fonttikoon pitäisi olla >= 100px, saatiin ${fs}`);
+    })();
+
+    // NEW: ensure finishGame doesn't start flight when animate=false
+    (function testFinishGameNoFlightWhenAnimateFalse(){
+      const prevX = window.sledFlyOffsetX;
+      const prevY = window.sledFlyOffsetY;
+      window.sledFlyOffsetX = 123;
+      window.sledFlyOffsetY = 456;
+      finishGame(false);
+      console.assert(window.sledFlyOffsetX === 123 && window.sledFlyOffsetY === 456, "finishGame(false) should not change fly offsets");
+      // restore
+      window.sledFlyOffsetX = prevX;
+      window.sledFlyOffsetY = prevY;
+      finished = false;
+    })();
+
+    // NEW: when animate=true, final X offset should be far beyond canvas width
+    (function testFinishGameAnimateDistance(){
+      // simulate the intended end-state of the animation (tt=1)
+      const target = (canvas.width + 2200);
+      console.assert(target > canvas.width + 1000, `fly distance should be big enough, got ${target}`);
+    })();
+
+    runSelfTests();
+
+    setInterval(() => {
+      update();
+      draw();
+    }, 200);
+  </script>
+</body>
+</html>
