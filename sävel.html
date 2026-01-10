@@ -239,8 +239,12 @@
       // ---------- Speech (TTS) ----------
       function speak(text) {
         return new Promise((resolve) => {
+          const voices = speechSynthesis.getVoices();
+          const fiVoice = voices.find(v => v.lang === "fi-FI");
+
           const u = new SpeechSynthesisUtterance(text);
-          u.lang = "fi-FI";
+          //u.lang = "fi-FI";
+          u.voice = fiVoice;
           u.rate = 1.0;
           u.pitch = 1.0;
           u.volume = 0.5;
@@ -279,6 +283,7 @@
             clearTimeout(timer);
             setMic(false);
             // Cleanup handlers
+            recognizer.stop()
             recognizer.onresult = null;
             recognizer.onerror = null;
             recognizer.onend = null;
