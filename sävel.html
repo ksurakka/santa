@@ -411,7 +411,7 @@
             // await speak("Toistan.");
             // await sleep(100);
             playNote(target, 1.2);
-            await sleep(900);
+            await sleep(1500);
             continue;
           }
 
@@ -427,7 +427,7 @@
             await speak(`Oikein, sävel on ${targetName}.`);
             await sleep(120);
             playNote(target, 1.2);
-            await sleep(900);
+            await sleep(1500);
 
             return; // start new round
           } else {
@@ -440,7 +440,7 @@
             await speak(`Väärin, sävel on ${targetName}.`);
             await sleep(120);
             playNote(target, 1.2);
-            await sleep(850);
+            await sleep(1500);
 
             await speak(`${userName} kuulostaa tältä.`);
             await sleep(200);
