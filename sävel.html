@@ -271,8 +271,10 @@
       }
 
       function listenOnce(timeoutMs = 10000) {
-        return new Promise((resolve) => {
-          if (!recognizer) return resolve({ cmd: null, raw: "" });
+        return sleep(100).then( () =>
+         new Promise((resolve) => {
+          console.log('listenOnce')
+          if (!recognizer) throw new Error('No recognizer');
 
           let done = false;
           let timer = null;
@@ -283,7 +285,8 @@
             clearTimeout(timer);
             setMic(false);
             // Cleanup handlers
-            recognizer.stop()
+            console.log('recognizer.stop')
+            //recognizer.stop()
             recognizer.onresult = null;
             recognizer.onerror = null;
             recognizer.onend = null;
@@ -296,27 +299,30 @@
             if (ev.results && ev.results[0] && ev.results[0][0])
               best = ev.results[0][0].transcript || "";
             const cmd = parseCommand(best);
+            console.log('onResult', cmd, best);
             finish(cmd, best);
           };
 
           recognizer.onerror = () => finish(null, "");
           recognizer.onend = () => {
+            console.log('onend');
             if (!done) finish(null, "");
           };
 
           try {
             setMic(true);
+            console.log('recognizer.start')
             recognizer.start();
             timer = setTimeout(() => {
-              try {
-                recognizer.stop();
-              } catch (_) {}
-              finish(null, "");
+              console.log('timeout')
+              finish(null, "")
             }, timeoutMs);
           } catch (e) {
+            console.log(e);
             finish(null, "");
           }
-        });
+        })
+         );
       }
 
       // ---------- Piano (SoundFont) ----------
@@ -367,7 +373,7 @@
       async function waitForValidUserInput() {
         while (running) {
           setStatus('Kuuntelen… (sano "C", "D", "E" tai "toista")');
-          const { cmd, raw } = await listenOnce(12000);
+          const { cmd, raw } = await listenOnce(10000);
 
           if (!running) return null;
 
@@ -397,7 +403,7 @@
 
         // Soita arvottu sävel
         playNote(target, 1.2);
-        await sleep(900);
+        await sleep(1500);
 
         // Kysy ja kuuntele
         //await speak('Sano sävelen nimi: C, D, E tai "toista".');
@@ -490,8 +496,12 @@
         $("startBtn").disabled = true;
         $("stopBtn").disabled = false;
 
+//        await waitForValidUserInput();
+//       return;
+
         setStatus("Käynnistetään…");
         await speak("Aloitetaan harjoitus.");
+
         loop();
       });
 
