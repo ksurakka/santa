@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="fi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Korvaharjoitus – puheohjattu</title>
+    <style>
+      :root {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial,
+          sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #0b1020;
+        color: #e8ecff;
+      }
+      .wrap {
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 28px 18px 40px;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 18px;
+        padding: 18px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 10px;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      button {
+        border: 0;
+        border-radius: 14px;
+        padding: 10px 14px;
+        font-weight: 650;
+        background: #7aa2ff;
+        color: #071023;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: rgba(255, 255, 255, 0.14);
+        color: #e8ecff;
+      }
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 13px;
+      }
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #ff5a6a;
+        box-shadow: 0 0 0 3px rgba(255, 90, 106, 0.15);
+      }
+      .dot.on {
+        background: #38e08a;
+        box-shadow: 0 0 0 3px rgba(56, 224, 138, 0.16);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-top: 12px;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", monospace;
+      }
+      .big {
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: 0.2px;
+      }
+      .muted {
+        opacity: 0.82;
+      }
+      .status {
+        min-height: 42px;
+        line-height: 1.35;
+      }
+      .help {
+        font-size: 13px;
+        opacity: 0.85;
+      }
+      .kbd {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        font-size: 12px;
+      }
+      a {
+        color: #9db7ff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <h1>Puheohjattu korvaharjoitus (C / D / E, oktaavit 2–6)</h1>
+
+        <div class="row" style="margin-bottom: 12px">
+          <button id="startBtn">Aloita</button>
+          <button id="stopBtn" class="secondary" disabled>Lopeta</button>
+          <span class="pill"
+            ><span id="micDot" class="dot"></span>
+            <span id="micLabel">Mikrofoni pois</span></span
+          >
+          <span class="pill">Kieli: <span class="mono">fi-FI</span></span>
+        </div>
+
+        <div class="grid">
+          <div class="row">
+            <div class="pill">
+              <span class="muted">Tilasto</span>&nbsp;
+              <span id="score" class="mono">0 / 0 (0%)</span>
+            </div>
+            <div class="pill">
+              <span class="muted">Oikein</span>&nbsp;
+              <span id="okCount" class="mono">0</span>
+            </div>
+            <div class="pill">
+              <span class="muted">Väärin</span>&nbsp;
+              <span id="badCount" class="mono">0</span>
+            </div>
+          </div>
+
+          <div class="status">
+            <div class="muted">Tila</div>
+            <div id="statusText" class="mono">
+              Paina “Aloita”. Sano vastauksena: <span class="kbd">C</span>,
+              <span class="kbd">D</span>, <span class="kbd">E</span> tai
+              <span class="kbd">toista</span>.
+            </div>
+          </div>
+
+          <div class="help">
+            <div style="margin-top: 8px">
+              Vinkki: jos selain ei tunnista kirjaimia hyvin, kokeile lausua
+              <span class="kbd">cee</span>, <span class="kbd">dee</span>,
+              <span class="kbd">ii</span> tai suomeksi vain selkeästi
+              <span class="kbd">C</span>, <span class="kbd">D</span>,
+              <span class="kbd">E</span>.
+            </div>
+            <div style="margin-top: 6px">
+              Jos puheentunnistus ei käynnisty, varmista HTTPS / localhost ja
+              että selaimella on mikrofoni-oikeus.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SoundFont Player (piano samples) -->
+    <script src="https://cdn.jsdelivr.net/npm/soundfont-player@0.12.0/dist/soundfont-player.min.js"></script>
+
+    <script>
+      // ---------- Utilities ----------
+      const $ = (id) => document.getElementById(id);
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      function setMic(on) {
+        $("micDot").classList.toggle("on", on);
+        $("micLabel").textContent = on ? "Kuunnellaan" : "Mikrofoni pois";
+      }
+
+      function setStatus(s) {
+        $("statusText").textContent = s;
+      }
+
+      function updateScore(ok, bad) {
+        const total = ok + bad;
+        const pct = total ? Math.round((ok / total) * 100) : 0;
+        $("okCount").textContent = ok;
+        $("badCount").textContent = bad;
+        $("score").textContent = `${ok} / ${total} (${pct}%)`;
+      }
+
+      // Normalize Finnish speech recognition output to commands: "C" | "D" | "E" | "TOISTA" | null
+      function parseCommand(raw) {
+        if (!raw) return null;
+        let t = raw.toLowerCase().trim();
+
+        // Common cleanup
+        t = t
+          .replace(/[.,!?;:]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        // Accept if phrase contains the keyword (people may say "se on c" etc.)
+        if (
+          t.includes("toista") ||
+          t.includes("uudelleen") ||
+          t.includes("repeat")
+        )
+          return "TOISTA";
+
+        // Speech engines often output letter names as words:
+        // c: "c", "see", "cee", "si", "cee", "ci"
+        // d: "d", "dee", "di", "de"
+        // e: "e", "ee", "ii"
+        // Also handle "c-ään" style by checking standalone tokens.
+        const tokens = t.split(" ");
+
+        const hasAny = (arr) =>
+          tokens.some((x) => arr.includes(x)) || arr.some((x) => t === x);
+
+        if (hasAny(["c", "see", "cee", "si", "ci"])) return "C";
+        if (hasAny(["d", "dee", "di", "de"])) return "D";
+        if (hasAny(["e", "ee", "ii"])) return "E";
+
+        // Some recognizers might output just a single letter-like character in the middle
+        if (t === "c") return "C";
+        if (t === "d") return "D";
+        if (t === "e") return "E";
+
+        return null;
+      }
+
+      // ---------- Speech (TTS) ----------
+      function speak(text) {
+        return new Promise((resolve) => {
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = "fi-FI";
+          u.rate = 1.0;
+          u.pitch = 1.0;
+          u.volume = 0.5;
+          u.onend = resolve;
+          u.onerror = resolve; // don't deadlock
+          speechSynthesis.cancel(); // avoid queue build-up
+          speechSynthesis.speak(u);
+        });
+      }
+
+      // ---------- Speech Recognition ----------
+      const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+      let recognizer = null;
+
+      function makeRecognizer() {
+        if (!SpeechRecognition) return null;
+        const r = new SpeechRecognition();
+        r.lang = "fi-FI";
+        r.interimResults = false;
+        r.continuous = false; // we control restarts
+        r.maxAlternatives = 3;
+        return r;
+      }
+
+      function listenOnce(timeoutMs = 10000) {
+        return new Promise((resolve) => {
+          if (!recognizer) return resolve({ cmd: null, raw: "" });
+
+          let done = false;
+          let timer = null;
+
+          const finish = (cmd, raw) => {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            setMic(false);
+            // Cleanup handlers
+            recognizer.onresult = null;
+            recognizer.onerror = null;
+            recognizer.onend = null;
+            resolve({ cmd, raw });
+          };
+
+          recognizer.onresult = (ev) => {
+            let best = "";
+            // pick the first transcript from the first result
+            if (ev.results && ev.results[0] && ev.results[0][0])
+              best = ev.results[0][0].transcript || "";
+            const cmd = parseCommand(best);
+            finish(cmd, best);
+          };
+
+          recognizer.onerror = () => finish(null, "");
+          recognizer.onend = () => {
+            if (!done) finish(null, "");
+          };
+
+          try {
+            setMic(true);
+            recognizer.start();
+            timer = setTimeout(() => {
+              try {
+                recognizer.stop();
+              } catch (_) {}
+              finish(null, "");
+            }, timeoutMs);
+          } catch (e) {
+            finish(null, "");
+          }
+        });
+      }
+
+      // ---------- Piano (SoundFont) ----------
+      let audioCtx = null;
+      let piano = null;
+
+      async function initAudio() {
+        if (!audioCtx)
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === "suspended") await audioCtx.resume();
+
+        if (!piano) {
+          // A sampled acoustic grand piano (SoundFont)
+          piano = await Soundfont.instrument(audioCtx, "acoustic_grand_piano", {
+            // use CDN-hosted soundfonts
+            soundfont: "MusyngKite",
+          });
+        }
+      }
+
+      function playNote(note, duration = 1.2) {
+        if (!piano) return;
+        // returns a "stop" handle (SoundfontPlayer uses a node with stop)
+        const now = audioCtx.currentTime;
+        const n = piano.play(note, now, { gain: 0.9, duration });
+        return n;
+      }
+
+      // ---------- Game Loop ----------
+      const NAMES = ["C", "D", "E"];
+      const OCTAVES = [2, 3, 4, 5, 6];
+
+      let running = false;
+      let ok = 0,
+        bad = 0;
+      let target = null;
+
+      function rand(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
+      function pickTarget() {
+        const name = rand(NAMES);
+        const oct = rand(OCTAVES);
+        return `${name}${oct}`;
+      }
+
+      async function waitForValidUserInput() {
+        while (running) {
+          setStatus('Kuuntelen… (sano "C", "D", "E" tai "toista")');
+          const { cmd, raw } = await listenOnce(12000);
+
+          if (!running) return null;
+
+          if (!cmd) {
+            // Not understood; keep waiting
+            setStatus(
+              `En saanut selvää (${
+                raw ? 'kuulin: "' + raw + '"' : "ei puhetta"
+              }). Sano C, D, E tai toista.`
+            );
+            //await speak("En saanut selvää. Sano C, D, E tai toista.");
+            continue;
+          }
+
+          return cmd; // "C" | "D" | "E" | "TOISTA"
+        }
+        return null;
+      }
+
+      async function round() {
+        // Kierros alkaa
+        target = pickTarget(); // e.g. "C4"
+        const targetName = target[0]; // C/D/E
+
+        setStatus(`Kierros alkaa. Soitan sävelen…`);
+        await sleep(400);
+
+        // Soita arvottu sävel
+        playNote(target, 1.2);
+        await sleep(900);
+
+        // Kysy ja kuuntele
+        //await speak('Sano sävelen nimi: C, D, E tai "toista".');
+
+        while (running) {
+          const cmd = await waitForValidUserInput();
+          if (!cmd || !running) return;
+
+          if (cmd === "TOISTA") {
+            setStatus(`Toistan sävelen ${target}…`);
+            // await speak("Toistan.");
+            // await sleep(100);
+            playNote(target, 1.2);
+            await sleep(900);
+            continue;
+          }
+
+          // User answered a note name
+          const userName = cmd; // "C"/"D"/"E"
+          const userNote = `${userName}${target.slice(1)}`; // same octave as target for demonstration
+
+          if (userName === targetName) {
+            ok++;
+            updateScore(ok, bad);
+
+            setStatus(`Oikein! Tämä sävel on ${target}.`);
+            await speak(`Oikein, sävel on ${targetName}.`);
+            await sleep(120);
+            playNote(target, 1.2);
+            await sleep(900);
+
+            return; // start new round
+          } else {
+            bad++;
+            updateScore(ok, bad);
+
+            setStatus(
+              `Väärin. Tämä sävel on ${target}. Sinä sanoit ${userName}.`
+            );
+            await speak(`Väärin, sävel on ${targetName}.`);
+            await sleep(120);
+            playNote(target, 1.2);
+            await sleep(850);
+
+            await speak(`${userName} kuulostaa tältä.`);
+            await sleep(200);
+            playNote(userNote, 1.2);
+            await sleep(2000);
+
+            return; // start new round
+          }
+        }
+      }
+
+      async function loop() {
+        while (running) {
+          await round();
+          await sleep(250);
+        }
+      }
+
+      // ---------- UI wiring ----------
+      $("startBtn").addEventListener("click", async () => {
+        if (running) return;
+
+        // Setup
+        recognizer = makeRecognizer();
+        if (!recognizer) {
+          setStatus(
+            "Selaimesi ei tue puheentunnistusta (Web Speech API). Kokeile Chromea."
+          );
+          return;
+        }
+
+        try {
+          await initAudio(); // requires user gesture => this click is perfect
+        } catch (e) {
+          console.log(e);
+          setStatus(
+            "Äänen alustus epäonnistui. Varmista, että selain sallii audion."
+          );
+          return;
+        }
+
+        ok = 0;
+        bad = 0;
+        updateScore(ok, bad);
+
+        running = true;
+        $("startBtn").disabled = true;
+        $("stopBtn").disabled = false;
+
+        setStatus("Käynnistetään…");
+        await speak("Aloitetaan harjoitus.");
+        loop();
+      });
+
+      $("stopBtn").addEventListener("click", async () => {
+        running = false;
+        $("startBtn").disabled = false;
+        $("stopBtn").disabled = true;
+        setMic(false);
+        try {
+          if (recognizer) recognizer.abort();
+        } catch (_) {}
+        speechSynthesis.cancel();
+        setStatus("Pysäytetty. Paina “Aloita” jatkaaksesi.");
+      });
+
+      // Initial
+      updateScore(0, 0);
+    </script>
+  </body>
+</html>
